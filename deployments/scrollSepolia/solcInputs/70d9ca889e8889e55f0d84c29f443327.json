@@ -1,0 +1,36 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "contracts/EthKl.sol": {
+      "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.0;\r\n\r\ncontract EthLocker {\r\n    struct Transaction {\r\n        address sender;\r\n        uint256 amount;\r\n        uint256 claimedAmount; // Track how much has been claimed\r\n        address[] claimers; // List of addresses that claimed ETH\r\n        mapping(address => uint256) claims; // Amount claimed by each address\r\n        mapping(address => ClaimInfo[]) claimHistory; // Modified: Store claim info\r\n    }\r\n\r\n    struct ClaimInfo {\r\n        uint256 timestamp;\r\n        uint256 amount;\r\n    }\r\n    mapping(bytes32 => Transaction) public transactions;\r\n\r\n    event EthLocked(\r\n        bytes32 indexed transactionHash,\r\n        address indexed sender,\r\n        uint256 amount\r\n    );\r\n    event EthClaimed(\r\n        bytes32 indexed transactionHash,\r\n        address indexed recipient,\r\n        uint256 amount\r\n    );\r\n\r\n    // Function for the sender to lock ETH and generate a transaction hash\r\n    function lockEth() external payable returns (bytes32) {\r\n        require(msg.value > 0, \"Must send some ETH\");\r\n\r\n        // Create a unique hash for this transaction\r\n        bytes32 transactionHash = keccak256(\r\n            abi.encodePacked(msg.sender, msg.value, block.timestamp)\r\n        );\r\n\r\n        // Store the transaction details\r\n        Transaction storage txn = transactions[transactionHash];\r\n        txn.sender = msg.sender;\r\n        txn.amount = msg.value;\r\n        txn.claimedAmount = 0;\r\n\r\n        // Emit event for locked ETH\r\n        emit EthLocked(transactionHash, msg.sender, msg.value);\r\n\r\n        // Return the transaction hash (to be written to the NFC tag)\r\n        return transactionHash;\r\n    }\r\n\r\n    // Function for the recipient to claim ETH by scanning NFC and providing the transaction hash\r\n    function claimEth(\r\n        bytes32 transactionHash,\r\n        uint256 requestedAmount\r\n    ) external {\r\n        Transaction storage txn = transactions[transactionHash];\r\n\r\n        // Ensure the transaction exists\r\n        require(txn.sender != address(0), \"Transaction does not exist\");\r\n        require(\r\n            requestedAmount <= (txn.amount - txn.claimedAmount),\r\n            \"Requested amount exceeds available ETH\"\r\n        );\r\n\r\n        // Update the claimed amount\r\n        txn.claimedAmount += requestedAmount;\r\n\r\n        // Add the claimer to the list if they haven't claimed before\r\n        if (txn.claims[msg.sender] == 0) {\r\n            txn.claimers.push(msg.sender);\r\n        }\r\n        txn.claims[msg.sender] += requestedAmount;\r\n        txn.claimHistory[msg.sender].push(\r\n            ClaimInfo(block.timestamp, requestedAmount)\r\n        ); // Modified: Store claim info\r\n\r\n        // Transfer ETH to the recipient\r\n        (bool success, ) = msg.sender.call{value: requestedAmount}(\"\");\r\n        require(success, \"ETH transfer failed\");\r\n\r\n        // Emit event for claimed ETH\r\n        emit EthClaimed(transactionHash, msg.sender, requestedAmount);\r\n    }\r\n\r\n    function getTransaction(\r\n        bytes32 transactionHash\r\n    )\r\n        external\r\n        view\r\n        returns (\r\n            address,\r\n            uint256,\r\n            uint256,\r\n            address[] memory,\r\n            ClaimInfo[][] memory\r\n        )\r\n    {\r\n        Transaction storage txn = transactions[transactionHash];\r\n        ClaimInfo[][] memory allClaimHistory = new ClaimInfo[][](\r\n            txn.claimers.length\r\n        );\r\n        for (uint i = 0; i < txn.claimers.length; i++) {\r\n            allClaimHistory[i] = txn.claimHistory[txn.claimers[i]];\r\n        }\r\n        return (\r\n            txn.sender,\r\n            txn.amount,\r\n            txn.claimedAmount,\r\n            txn.claimers,\r\n            allClaimHistory\r\n        );\r\n    }\r\n\r\n    function getClaimAmount(\r\n        bytes32 transactionHash,\r\n        address claimer\r\n    ) external view returns (uint256) {\r\n        return transactions[transactionHash].claims[claimer];\r\n    }\r\n\r\n    function getClaimAtTimestamp(\r\n        bytes32 transactionHash,\r\n        address claimer,\r\n        uint256 timestamp\r\n    ) external view returns (uint256) {\r\n        Transaction storage txn = transactions[transactionHash];\r\n        require(txn.sender != address(0), \"Transaction does not exist\");\r\n\r\n        ClaimInfo[] storage claimHistory = txn.claimHistory[claimer];\r\n        for (uint i = 0; i < claimHistory.length; i++) {\r\n            if (claimHistory[i].timestamp == timestamp) {\r\n                return claimHistory[i].amount;\r\n            }\r\n        }\r\n        return 0; // Return 0 if no claim found at the specified timestamp\r\n    }\r\n\r\n    // Fallback function to accept ETH directly\r\n    receive() external payable {}\r\n}\r\n"
+    }
+  },
+  "settings": {
+    "evmVersion": "paris",
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}

@@ -12,6 +12,7 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const COINMARKET_API_KEY = process.env.COINMARKET_API_KEY;
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY;
 const SCROLL_API_KEY = process.env.SCROLL_API_KEY;
+const BASE_API_KEY = process.env.BASE_API_KEY;
 
 module.exports = {
   defaultNetwork: "hardhat",
@@ -23,11 +24,27 @@ module.exports = {
       chainId: 11155111,
       blockConfirmations: 6,
     },
+    manta: {
+      url: "https://pacific-rpc.sepolia-testnet.manta.network/http", // Insert your RPC URL Here
+      chainId: 3441006, //Insert your ChainID Here
+      blockConfirmations: 2,
+      accounts: [PRIVATE_KEY],
+    },
     scrollSepolia: {
       url: SCROLL_RPC_URL, // Ensure this line is added
       accounts: [PRIVATE_KEY], // Ensure this line is added
       chainId: 534351, // Replace with the correct chain ID for Scroll Sepolia
       blockConfirmations: 2, // Ensure this line is added
+    },
+    base_sepolia: {
+      url: "https://sepolia.base.org",
+      accounts: [PRIVATE_KEY],
+      verify: {
+        etherscan: {
+          apiUrl: "https://api-sepolia.basescan.org",
+          apiKey: ETHERSCAN_API_KEY
+        }
+      }
     },
     localhost: {
       url: "http://127.0.0.1:8545/",
@@ -36,15 +53,16 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
+      baseSepolia: BASE_API_KEY, // Add your API key here
       scrollSepolia: SCROLL_API_KEY, // Ensure this line is added
     },
     customChains: [
       {
-        network: "scrollSepolia",
-        chainId: 534351,
+        network: "baseSepolia",
+        chainId: 534351, // Replace with the correct chain ID for Base Sepolia
         urls: {
-          apiURL: "https://api-sepolia.scrollscan.com/api", // Ensure this line is added
-          browserURL: "https://sepolia.scrollscan.com/", // Ensure this line is added
+          apiURL: "https://api-sepolia.basescan.org/api", // Ensure this line is added
+          browserURL: "https://sepolia.basescan.org/", // Ensure this line is added
         },
       },
     ],
